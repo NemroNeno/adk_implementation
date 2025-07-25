@@ -1,26 +1,32 @@
-
+# Core FastAPI
 fastapi
 uvicorn[standard]
 sqlalchemy
 psycopg2-binary
 pydantic[email]
 python-multipart
+
+# Security & Auth
 passlib[bcrypt]
 bcrypt
-argon2-cffi  # <-- ADD THIS LINE
 python-jose[cryptography]
 authlib
 itsdangerous
-langchain
-langchain-community
-langchain-openai
-langchain-google-genai 
+
+# Business Logic
+stripe
+twilio
+
+# LangChain & AI (Updated to modern standards)
+langchain>=0.2.0
+langchain-openai>=0.1.0
+langchain-google-genai>=1.0.0
+langchain-community>=0.2.0
+langchain-tavily>=0.1.0
 tavily-python
 fastapi-socketio
 python-socketio
-stripe
-cryptography
+
+# Monitoring & Observability
 sentry-sdk[fastapi]
 prometheus-fastapi-instrumentator
-twilio
-

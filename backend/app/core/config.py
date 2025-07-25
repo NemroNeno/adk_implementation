@@ -39,5 +39,10 @@ class Settings:
 settings = Settings()
 
 # Validation Check
+# ... (settings = Settings() line) ...
+
+# --- VALIDATION CHECKS ---
 if not settings.ENCRYPTION_KEY:
-    raise ValueError("FATAL ERROR: ENCRYPTION_KEY is not set or not loaded correctly.")
+    raise ValueError("FATAL ERROR: ENCRYPTION_KEY is not set.")
+if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+    raise ValueError("FATAL ERROR: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is not set in the .env file.")
