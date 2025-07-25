@@ -17,15 +17,14 @@ stripe
 twilio
 
 # LangChain & AI (Modern Setup with Google ADK)
-google-adk                     # Primary AI framework
+google-adk                    # Primary AI framework
+elevenlabs                    # ✅ Added: Text-to-speech
 
-
-
-langchain-core                 # Required for shared types (used by ADK)
+langchain-core                # Required for shared types (used by ADK)
 langchain-google-genai        # For LLM connections
-langchain-community            # If you use community tools (keep if needed)
-tavily-python                  # Tavily client
-langchain-tavily>=0.1.0        # LangChain wrapper for Tavily
+langchain-community           # Keep if you use community tools
+tavily-python                 # Tavily base client
+langchain-tavily>=0.1.0       # LangChain wrapper for Tavily
 
 # Real-Time Communication
 fastapi-socketio

@@ -1,6 +1,7 @@
 import socketio
 import asyncio
 from sqlalchemy.orm import Session
+from app.services.voice_service import synthesize_speech_elevenlabs
 
 # --- Google ADK Imports ---
 from google_adk.agents import LlmAgent
@@ -16,50 +17,55 @@ from app.crud import crud_agent, crud_chat
 from app.schemas.chat import ChatMessageCreate
 from app.services.alert_service import send_alert
 
-# Global handler for ADK (can be shared across connections)
-handler = AdkAsyncHandler()
-
+# --- Socket.IO Setup ---
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins="http://localhost:3000")
 
-# In-memory storage for agent instances
+# --- Globals ---
+handler = AdkAsyncHandler()
 agent_instances = {}
 session_user_info = {}
 
-def get_db(): return SessionLocal()
+def get_db():
+    return SessionLocal()
 
 @sio.event
-async def connect(sid, environ): print(f"Socket connected: {sid}")
+async def connect(sid, environ):
+    print(f"Socket connected: {sid}")
 
 @sio.event
 async def disconnect(sid):
-    if sid in agent_instances: del agent_instances[sid]
-    if sid in session_user_info: del session_user_info[sid]
+    agent_instances.pop(sid, None)
+    session_user_info.pop(sid, None)
     print(f"Socket disconnected: {sid}")
 
 @sio.on('start_chat')
 async def start_chat(sid, data):
-    agent_id, user_id = data.get('agent_id'), data.get('user_id')
-    if not all([agent_id, user_id]): return
-    
+    agent_id = data.get('agent_id')
+    user_id = data.get('user_id')
+    if not agent_id or not user_id:
+        return
+
     db = get_db()
     try:
         agent_config = crud_agent.get_agent_by_id(db, agent_id=agent_id)
-        if not agent_config or agent_config.owner_id != user_id: return
+        if not agent_config or agent_config.owner_id != user_id:
+            return
 
         session_user_info[sid] = {'user_id': user_id, 'agent_id': agent_id}
-        
-        # Get the tool objects from our registry based on agent config
-        tools = [ADK_TOOL_REGISTRY[key] for key in agent_config.tools if key in ADK_TOOL_REGISTRY]
-        
-        # The underlying model is still Gemini, configured via the LangChain wrapper
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=settings.GOOGLE_API_KEY)
 
-        # --- Create an Agent using the Google ADK's LlmAgent ---
+        tools = [ADK_TOOL_REGISTRY[key] for key in agent_config.tools if key in ADK_TOOL_REGISTRY]
+
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            google_api_key=settings.GOOGLE_API_KEY
+        )
+
         adk_agent = LlmAgent(
             llm=llm,
             system_prompt=agent_config.system_prompt,
             tools=tools
         )
+
         agent_instances[sid] = adk_agent
 
         await sio.emit('chat_started', to=sid)
@@ -68,50 +74,65 @@ async def start_chat(sid, data):
 
 @sio.on('chat_message')
 async def handle_chat_message(sid, data):
-    if sid not in agent_instances: return
+    if sid not in agent_instances:
+        return
+
     user_input = data.get('message')
-    if not user_input: return
+    if not user_input:
+        return
 
     adk_agent = agent_instances[sid]
-    user_info = session_user_info[sid]
-    db = get_db() # Get a DB session for saving history
+    user_info = session_user_info.get(sid)
+    db = get_db()
 
     try:
-        # Save the human message first
-        human_msg = ChatMessageCreate(agent_id=user_info['agent_id'], user_id=user_info['user_id'], role='human', content=user_input)
-        crud_chat.create_chat_message(db, message=human_msg)
+        # Save human message
+        crud_chat.create_chat_message(db, ChatMessageCreate(
+            agent_id=user_info['agent_id'],
+            user_id=user_info['user_id'],
+            role='human',
+            content=user_input
+        ))
 
-        # --- Use the ADK to process the message and get a streaming response ---
-        # We need to load history for the ADK in LangChain's format
-        history = crud_chat.get_chat_history_for_agent(db, agent_id=user_info['agent_id'], owner_id=user_info['user_id'])
+        # Build history
+        history = crud_chat.get_chat_history_for_agent(
+            db,
+            agent_id=user_info['agent_id'],
+            owner_id=user_info['user_id']
+        )
         langchain_history = [HumanMessage(content=msg.content) for msg in history if msg.role == 'human']
 
-        response_generator = handler.stream(
-            agent=adk_agent,
-            prompt=user_input,
-            previous_messages=langchain_history
-        )
-
+        # Get agent response
+        response_generator = handler.stream(agent=adk_agent, prompt=user_input, previous_messages=langchain_history)
         full_response_content = ""
         async for step in response_generator:
             if step.is_last_step and step.outputs:
-                # The final output from the agent
                 final_output = step.outputs.get("output", "")
                 full_response_content += final_output
-                await sio.emit('token', {'token': final_output}, to=sid)
-            elif step.intermediate_steps:
-                # This is where you could stream back tool usage info
-                print(f"ADK Intermediate Step: {step.intermediate_steps}")
 
-        # Save the AI response
-        ai_msg = ChatMessageCreate(agent_id=user_info['agent_id'], user_id=user_info['user_id'], role='ai', content=full_response_content)
-        crud_chat.create_chat_message(db, message=ai_msg)
+        print(f"[{sid}] Agent Response Text: {full_response_content}")
 
-        await sio.emit('stream_end', {'metrics': {}}) # Metrics would need to be re-implemented
+        # Convert to speech
+        audio_response_data = synthesize_speech_elevenlabs(full_response_content)
+
+        if audio_response_data:
+            await sio.emit('audio_response', {
+                'audio': audio_response_data,
+                'text': full_response_content
+            }, to=sid)
+        else:
+            await sio.emit('error', {'message': "Failed to synthesize audio response."})
+
+        # Save AI message
+        crud_chat.create_chat_message(db, ChatMessageCreate(
+            agent_id=user_info['agent_id'],
+            user_id=user_info['user_id'],
+            role='ai',
+            content=full_response_content
+        ))
 
     except Exception as e:
         print(f"!! AGENT EXECUTION ERROR: {e}")
-        send_alert("critical", "Agent execution error", {"error": str(e), "user_id": user_info['user_id']})
-        await sio.emit('error', {'message': "An error occurred."})
+        await sio.emit('error', {'message': "An agent error occurred."})
     finally:
         db.close()

@@ -16,6 +16,7 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
     TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY")
+    ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY")
     
     # Twilio
     TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID")

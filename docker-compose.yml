@@ -72,6 +72,7 @@ services:
     # --- THE FIX IS HERE ---
     # We point uvicorn to the 'socket_app' object in main.py
     command: uvicorn app.main:socket_app --host 0.0.0.0 --port 8000 --reload
+
     # --- END OF FIX ---
     volumes:
       - ./backend/app:/usr/src/app/app
