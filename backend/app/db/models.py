@@ -13,7 +13,6 @@ class UserRole(str, enum.Enum):
 
 
 # ...
-
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -26,12 +25,13 @@ class User(Base):
     stripe_customer_id = Column(String, unique=True, index=True, nullable=True)
     stripe_subscription_id = Column(String, unique=True, nullable=True)
     plan = Column(String, default="free", nullable=False)
-    token_usage_this_month = Column(Integer, default=0, nullable=False)
+    token_usage_this_month = Column(Integer, default=0, nullable=False) 
 
+    # --- THE FIX IS HERE: Add cascade deletes to all relationships ---
     agents = relationship("Agent", back_populates="owner", cascade="all, delete-orphan")
     messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
     integrations = relationship("UserIntegration", back_populates="owner", cascade="all, delete-orphan")
-    # We also need to define the relationship to AuditLog to cascade deletes
+    # We must define the relationship to AuditLog for the cascade to work
     audit_logs = relationship("AuditLog", cascade="all, delete-orphan")
 
 class Agent(Base):
@@ -64,15 +64,14 @@ class Tool(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True, nullable=False)
     description = Column(String, nullable=False)
-    langchain_key = Column(String, unique=True, nullable=False)
+    # --- THIS IS THE CHANGE ---
+    function_name = Column(String, unique=True, nullable=False)
     is_public = Column(Boolean, default=True)
-
-
-
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     id = Column(Integer, primary_key=True, index=True)
+    # --- ENSURE THIS LINE IS CORRECT ---
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
     action = Column(String, index=True, nullable=False)

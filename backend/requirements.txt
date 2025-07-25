@@ -8,7 +8,6 @@ python-multipart
 
 # Security & Auth
 passlib[bcrypt]
-bcrypt
 python-jose[cryptography]
 authlib
 itsdangerous
@@ -17,13 +16,18 @@ itsdangerous
 stripe
 twilio
 
-# LangChain & AI (Updated to modern standards)
-langchain>=0.2.0
-langchain-openai>=0.1.0
-langchain-google-genai>=1.0.0
-langchain-community>=0.2.0
-langchain-tavily>=0.1.0
-tavily-python
+# LangChain & AI (Modern Setup with Google ADK)
+google-adk                     # Primary AI framework
+
+
+
+langchain-core                 # Required for shared types (used by ADK)
+langchain-google-genai        # For LLM connections
+langchain-community            # If you use community tools (keep if needed)
+tavily-python                  # Tavily client
+langchain-tavily>=0.1.0        # LangChain wrapper for Tavily
+
+# Real-Time Communication
 fastapi-socketio
 python-socketio
 
