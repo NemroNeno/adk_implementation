@@ -17,14 +17,46 @@ stripe
 twilio
 
 # LangChain & AI (Modern Setup with Google ADK)
-google-adk                    # Primary AI framework
-elevenlabs                    # ✅ Added: Text-to-speech
+google-adk==1.8.0
+anyio
+authlib
+click
+fastapi
+google-api-python-client
+google-cloud-aiplatform
+google-cloud-secret-manager
+google-cloud-speech
+google-cloud-storage
+google-genai
+graphviz
+mcp
+opentelemetry-api
+opentelemetry-exporter-gcp-trace
+opentelemetry-sdk
+pydantic
+python-dateutil
+python-dotenv
+PyYAML
+requests
+sqlalchemy
+starlette
+tenacity
+typing-extensions
+tzlocal
+uvicorn
+watchdog
+websockets
 
-langchain-core                # Required for shared types (used by ADK)
+# ... (existing requirements) ...
+# google-cloud-speech  <-- DELETE THIS
+# google-cloud-texttospeech <-- DELETE THIS
+elevenlabs # <-- ADD THIS
+
+langchain-core                 # Required for shared types (used by ADK)
 langchain-google-genai        # For LLM connections
-langchain-community           # Keep if you use community tools
-tavily-python                 # Tavily base client
-langchain-tavily>=0.1.0       # LangChain wrapper for Tavily
+langchain-community            # If you use community tools (keep if needed)
+tavily-python                  # Tavily client
+langchain-tavily>=0.1.0        # LangChain wrapper for Tavily
 
 # Real-Time Communication
 fastapi-socketio

@@ -9,7 +9,9 @@ FROM base AS deps
 COPY requirements.txt .
 # Add a very long timeout to handle slow network connections
 RUN pip install --no-cache-dir --timeout 600 -r requirements.txt
-
+# --- THE FIX IS HERE ---
+# Now, forcefully install google-adk. This ensures it's always present.
+RUN pip install google-adk
 # --- Stage 3: Development Image (This is the target) ---
 FROM base AS development
 WORKDIR /usr/src/app
