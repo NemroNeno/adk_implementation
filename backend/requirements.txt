@@ -1,0 +1,26 @@
+
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pydantic[email]
+python-multipart
+passlib[bcrypt]
+bcrypt
+argon2-cffi  # <-- ADD THIS LINE
+python-jose[cryptography]
+authlib
+itsdangerous
+langchain
+langchain-community
+langchain-openai
+langchain-google-genai 
+tavily-python
+fastapi-socketio
+python-socketio
+stripe
+cryptography
+sentry-sdk[fastapi]
+prometheus-fastapi-instrumentator
+twilio
+
