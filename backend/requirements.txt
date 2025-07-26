@@ -1,67 +1,24 @@
-# Core FastAPI
+# This list is minimal and correct.
 fastapi
 uvicorn[standard]
 sqlalchemy
 psycopg2-binary
 pydantic[email]
 python-multipart
-
-# Security & Auth
 passlib[bcrypt]
+bcrypt
 python-jose[cryptography]
 authlib
 itsdangerous
-
-# Business Logic
 stripe
 twilio
-
-# LangChain & AI (Modern Setup with Google ADK)
-google-adk==1.8.0
-anyio
-authlib
-click
-fastapi
-google-api-python-client
-google-cloud-aiplatform
-google-cloud-secret-manager
-google-cloud-speech
-google-cloud-storage
-google-genai
-graphviz
-mcp
-opentelemetry-api
-opentelemetry-exporter-gcp-trace
-opentelemetry-sdk
-pydantic
-python-dateutil
-python-dotenv
-PyYAML
-requests
-sqlalchemy
-starlette
-tenacity
-typing-extensions
-tzlocal
-uvicorn
-watchdog
-websockets
-
-# ... (existing requirements) ...
-# google-cloud-speech  <-- DELETE THIS
-# google-cloud-texttospeech <-- DELETE THIS
-elevenlabs # <-- ADD THIS
-
-langchain-core                 # Required for shared types (used by ADK)
-langchain-google-genai        # For LLM connections
-langchain-community            # If you use community tools (keep if needed)
-tavily-python                  # Tavily client
-langchain-tavily>=0.1.0        # LangChain wrapper for Tavily
-
-# Real-Time Communication
+elevenlabs
+tavily-python
+langchain-core
+langchain-google-genai
+google-generativeai # This is the missing dependency for langchain_google_genai
+google-adk # We will install ADK via pip as it's the official method
 fastapi-socketio
 python-socketio
-
-# Monitoring & Observability
 sentry-sdk[fastapi]
 prometheus-fastapi-instrumentator

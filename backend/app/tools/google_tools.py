@@ -1,4 +1,4 @@
-from google_adk.tools import tool
+from app.google_adk.tools import tool
 from tavily import TavilyClient
 from twilio.rest import Client
 from app.core.config import settings
