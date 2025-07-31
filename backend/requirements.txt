@@ -1,23 +1,39 @@
-# This list is minimal and correct.
+# Core FastAPI
 fastapi
 uvicorn[standard]
 sqlalchemy
 psycopg2-binary
 pydantic[email]
 python-multipart
+
+# Security & Auth
 passlib[bcrypt]
-bcrypt
+py-bcrypt
 python-jose[cryptography]
 authlib
 itsdangerous
+
+# Business Logic
 stripe
 twilio
-elevenlabs
+
+# --- THIS IS THE UPGRADE ---
+# Use the official, modern Google AI libraries
+# ... (other requirements)
+# ... (other requirements like fastapi, sqlalchemy...)
+
+# --- AI Tools ---
+google-generativeai
+google-cloud-aiplatform
+
+# ... (other tools like tavily-python, twilio...)
+# ... (other tools like tavily-python)
+google-cloud-speech
+google-cloud-texttospeech
+# --- END OF UPGRADE ---
+
+# ... (other libraries like elevenlabs can now be removed if you prefer Google's audio)
 tavily-python
-langchain-core
-langchain-google-genai
-google-generativeai # This is the missing dependency for langchain_google_genai
-google-adk # We will install ADK via pip as it's the official method
 fastapi-socketio
 python-socketio
 sentry-sdk[fastapi]

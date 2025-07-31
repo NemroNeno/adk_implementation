@@ -1,28 +1,26 @@
 services:
-  # ...
   db:
     image: postgres:15
-    container_name: adk_postgres_db # Use the correct container name
+    container_name: adk_postgres_db
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-    # The 'env_file' directive is the most reliable way to load these
     env_file:
       - .env
     ports:
       - "5432:5432"
     restart: unless-stopped
-# ... # ... (rest of db service is correct)
+
   redis:
-    image: redis:7-alpine # ... (rest of redis service is correct)
-  # ... (rest of the file is unchanged) ...
+    image: redis:7-alpine
+    container_name: adk_redis_cache
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
 
   backend:
     build: ./backend
     container_name: adk_backend_api
     command: uvicorn app.main:socket_app --host 0.0.0.0 --port 8000 --reload
-    # --- THE FIX IS HERE ---
-    # This volume mount ensures that your local code is mirrored inside the
-    # container, including the vendored google_adk folder.
     volumes:
       - ./backend:/usr/src/app
     ports:
@@ -34,15 +32,21 @@ services:
       - redis
     restart: on-failure
 
-# ... (rest of the file is unchanged) ...
   frontend:
-    build: ./frontend # Simplified build context
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: adk_frontend_ui
     command: npm run dev
     volumes:
+      # --- THIS IS THE PERFORMANCE FIX ---
+      # 1. Mount your local code into the container for hot-reloading
       - ./frontend:/app
+      # 2. Use an "anonymous volume" to keep node_modules INSIDE the container.
+      # This tells Docker: "Don't overwrite the /app/node_modules folder in the
+      # container with the one from my local machine." This is the key to high performance.
       - /app/node_modules
-      - /app/.next
+      # --- END OF FIX ---
     ports:
       - "3000:3000"
     env_file:
@@ -50,5 +54,6 @@ services:
     depends_on:
       - backend
     restart: on-failure
+
 volumes:
   postgres_data:

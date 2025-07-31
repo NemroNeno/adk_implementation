@@ -52,11 +52,11 @@ def export_audit_log(db: Session = Depends(get_db)):
     )
 
 
-# --- ADD THIS NEW ENDPOINT ---
 @router.get("/analytics", dependencies=[Depends(allow_admin_only)])
 def get_system_analytics(db: Session = Depends(get_db)):
     """
     Retrieves system-wide analytics. Admin only.
     """
+    # Just one simple function call!
     analytics = crud_stats.get_platform_analytics(db)
     return analytics

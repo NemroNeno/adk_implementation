@@ -11,23 +11,33 @@ class UserRole(str, enum.Enum):
     admin = "admin"
     user = "user"
     viewer = "viewer"
+# Inside the User class in models.py
+# ... (imports) ...
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    # --- END OF FIX ---
-    
     full_name = Column(String, index=True, nullable=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    # ... (the rest of the User model is correct)
-    # ... (id, full_name, etc., are unchanged) ...
+    hashed_password = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    role = Column(Enum(UserRole), default=UserRole.user)
+    plan = Column(String, default="free")
+    token_usage_this_month = Column(Integer, default=0)
+    provider = Column(String, nullable=True)
 
-    # --- THE FIX IS HERE: Add cascade deletes to all relationships ---
+    # --- THIS IS THE FIX ---
+    # Add the fields needed for Stripe integration
+    stripe_customer_id = Column(String, unique=True, nullable=True, index=True)
+    stripe_subscription_id = Column(String, unique=True, nullable=True)
+    # --- END OF FIX ---
+
     agents = relationship("Agent", back_populates="owner", cascade="all, delete-orphan")
     messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
     integrations = relationship("UserIntegration", back_populates="owner", cascade="all, delete-orphan")
-    # We must also define the relationship to AuditLog for the cascade to work
     audit_logs = relationship("AuditLog", cascade="all, delete-orphan")
 
+# ... (rest of the file is the same)
     # ... (rest of AuditLog model)
 class Agent(Base):
     __tablename__ = "agents"

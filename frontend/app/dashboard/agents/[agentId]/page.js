@@ -2,14 +2,16 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { io } from 'socket.io-client';
-import { Box, Typography, Alert, Stack, Divider, Chip, Tooltip, Skeleton, Fab, Avatar } from '@mui/material';
+import { Box, Typography, Alert, Stack, Divider, Chip, Tooltip, Skeleton, Fab, Avatar, LinearProgress } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
-import MemoryIcon from '@mui/icons-material/Memory';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import ConstructionIcon from '@mui/icons-material/Construction';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { api, useUserState } from '@/context/AuthContext';
+import DashboardLayout from '@/components/DashboardLayout';
 import ChatMessage from '@/components/ChatMessage';
+import ChatInput from '@/components/ChatInput'; // We'll use a dedicated input component
 
 export default function ChatPage() {
     const { agentId } = useParams();
@@ -19,153 +21,159 @@ export default function ChatPage() {
     const [messages, setMessages] = useState([]);
     const [error, setError] = useState('');
     const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+    
+    // NEW state for better UI feedback
     const [isStreaming, setIsStreaming] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [toolStatus, setToolStatus] = useState(null); // e.g., "Using Tavily Search..."
+
     const messagesEndRef = useRef(null);
-
-    const {
-        transcript,
-        listening,
-        resetTranscript,
-        browserSupportsSpeechRecognition
-    } = useSpeechRecognition();
-
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
+    // Fetch initial agent and history data
     useEffect(() => {
-        if (user) {
+        if (user && agentId) {
+            setIsLoadingHistory(true);
             Promise.all([
                 api.get(`/api/v1/agents/${agentId}`),
                 api.get(`/api/v1/agents/${agentId}/history`)
             ]).then(([agentRes, historyRes]) => {
                 setAgent(agentRes.data);
-                setMessages(historyRes.data);
-            }).catch(() => setError("Failed to load agent data."))
+                setMessages(historyRes.data.map(msg => ({...msg, id: msg.id}))); // Ensure unique keys
+            }).catch(() => setError("Failed to load agent data or history."))
               .finally(() => setIsLoadingHistory(false));
         }
     }, [agentId, user]);
 
+    // Setup WebSocket connection and listeners
     useEffect(() => {
-        if (!isLoadingHistory && user) {
+        if (!isLoadingHistory && user && agent) {
+            // Connect to the correct namespace
             const newSocket = io(process.env.NEXT_PUBLIC_API_URL, {
+                path: '/socket.io/',
                 transports: ['websocket'],
-                path: '/socket.io',
+                namespace: '/text'
             });
 
             setSocket(newSocket);
 
             newSocket.on('connect', () => {
-                console.log('Connected');
+                console.log('Socket.IO connected to /text namespace');
                 newSocket.emit('start_chat', {
-                    agent_id: parseInt(agentId),
+                    agent_id: parseInt(agentId, 10),
                     user_id: user.id,
                 });
             });
 
+            // --- CORRECTED EVENT HANDLERS ---
             newSocket.on('token', ({ token }) => {
+                setIsProcessing(true); // We are now receiving a response
+                setToolStatus(null);   // A tool is done, now we get text
                 if (!isStreaming) setIsStreaming(true);
+
                 setMessages(prev => {
-                    const last = prev[prev.length - 1];
-                    if (last?.role === 'ai') {
-                        last.content += token;
-                        return [...prev];
+                    const lastMsg = prev[prev.length - 1];
+                    // If last message was from AI, append token. Otherwise, create new AI message.
+                    if (lastMsg && lastMsg.role === 'ai') {
+                        return [
+                            ...prev.slice(0, -1),
+                            { ...lastMsg, content: lastMsg.content + token }
+                        ];
                     } else {
-                        return [...prev, { role: 'ai', content: token }];
+                        return [
+                            ...prev,
+                            { id: `ai-${Date.now()}`, role: 'ai', content: token }
+                        ];
                     }
                 });
             });
 
+            newSocket.on('tool_start', ({ name }) => {
+                // The backend says it's using a tool. Show this to the user.
+                setToolStatus(`Using tool: ${name.replace(/_/g, ' ')}...`);
+            });
+
             newSocket.on('stream_end', ({ metrics }) => {
-                setMessages(prev => {
-                    const last = prev[prev.length - 1];
-                    if (last?.role === 'ai') Object.assign(last, metrics);
-                    return [...prev];
-                });
                 setIsStreaming(false);
                 setIsProcessing(false);
+                setToolStatus(null);
+                // Optionally update the last message with final metrics
             });
 
             newSocket.on('error', (data) => {
-                setError(data.message);
+                setError(data.message || 'An unknown error occurred.');
                 setIsProcessing(false);
+                setIsStreaming(false);
+                setToolStatus(null);
+            });
+            
+            newSocket.on('disconnect', () => {
+                console.log('Socket.IO disconnected.');
             });
 
             return () => newSocket.disconnect();
         }
-    }, [isLoadingHistory, agentId, user, isStreaming]);
+    }, [isLoadingHistory, agentId, user, agent]);
 
     useEffect(scrollToBottom, [messages]);
 
-    const handleMicClick = () => {
-        if (listening) {
-            SpeechRecognition.stopListening();
-            setIsProcessing(true);
-            if (transcript.trim()) {
-                const newHumanMessage = { role: 'human', content: transcript, timestamp: new Date().toISOString() };
-                setMessages(prev => [...prev, newHumanMessage]);
-                socket?.emit('chat_message', { message: transcript });
-            } else {
-                setIsProcessing(false);
-            }
-            resetTranscript();
-        } else {
-            resetTranscript();
-            SpeechRecognition.startListening({ continuous: true });
-        }
-    };
+    const handleSendMessage = (messageText) => {
+        if (!messageText.trim() || !socket || isProcessing) return;
 
-    if (!browserSupportsSpeechRecognition && !isLoadingHistory) {
-        return <Alert severity="error">This browser does not support speech recognition.</Alert>;
-    }
+        setError('');
+        setIsProcessing(true);
+        const newHumanMessage = { id: `human-${Date.now()}`, role: 'human', content: messageText, timestamp: new Date().toISOString() };
+        setMessages(prev => [...prev, newHumanMessage]);
+        
+        socket.emit('chat_message', { message: messageText });
+    };
 
     if (isLoadingHistory || !user || !agent) {
         return (
-            <Box sx={{ p: 3 }}>
-                <Skeleton variant="text" width={250} height={60} />
-                <Skeleton variant="rectangular" width="100%" height={40} sx={{ my: 2 }} />
-                <Skeleton variant="rectangular" width="100%" height="60vh" />
-            </Box>
+            <DashboardLayout>
+                <Box sx={{ p: 3 }}>
+                    <Skeleton variant="text" width={250} height={60} />
+                    <Skeleton variant="rectangular" width="100%" height={40} sx={{ my: 2 }} />
+                    <Skeleton variant="rectangular" width="100%" height="60vh" />
+                </Box>
+            </DashboardLayout>
         );
     }
 
     return (
-        <Stack sx={{ height: 'calc(100vh - 64px)', p: 2 }}>
-            <Box>
-                <Typography variant="h5">{agent.name}</Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>{agent.system_prompt}</Typography>
-                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                    <Chip icon={<MemoryIcon />} label="Tools Enabled" size="small" />
-                    {agent.tools?.length > 0 ? agent.tools.map(tool => (
-                        <Tooltip key={tool} title={`This agent can use the ${tool} tool.`}>
-                            <Chip label={tool.replace(/_/g, ' ')} size="small" variant="outlined" />
-                        </Tooltip>
-                    )) : <Chip label="None" size="small" variant="outlined" />}
-                </Stack>
-                <Divider />
-            </Box>
+        <DashboardLayout>
+            <Stack sx={{ height: 'calc(100vh - 64px - 48px)', p: 2, position: 'relative' }}>
+                {/* Header */}
+                <Box>
+                    <Typography variant="h5">{agent.name}</Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>{agent.system_prompt}</Typography>
+                    <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                        {agent.tools?.length > 0 ? agent.tools.map(tool => (
+                            <Tooltip key={tool} title={`This agent can use the ${tool} tool.`}>
+                                <Chip icon={<ConstructionIcon />} label={tool.replace(/_/g, ' ')} size="small" variant="outlined" />
+                            </Tooltip>
+                        )) : <Chip label="No tools assigned" size="small" />}
+                    </Stack>
+                    <Divider />
+                </Box>
 
-            <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
-                {messages.map((msg, index) => <ChatMessage key={index} message={msg} />)}
-                {listening && <Typography color="text.secondary"><em>{transcript}...</em></Typography>}
-                {isStreaming && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <Avatar sx={{ bgcolor: 'primary.main', mx: 1 }}><SmartToyIcon /></Avatar>
-                        <Typography variant="body1" color="text.secondary">Typing...</Typography>
-                    </Box>
-                )}
-                <div ref={messagesEndRef} />
-            </Box>
+                {/* Chat History */}
+                <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2 }}>
+                    {messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)}
+                    <div ref={messagesEndRef} />
+                </Box>
+                
+                {/* Status Bar */}
+                <Box sx={{ height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', mb:1 }}>
+                    {isProcessing && !toolStatus && !isStreaming && <LinearProgress sx={{width: '100%'}} />}
+                    {toolStatus && <Chip icon={<SmartToyIcon/>} label={toolStatus} size="small" color="secondary"/>}
+                </Box>
+                
+                {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
 
-            {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
-                <Fab color={listening ? "secondary" : "primary"} onClick={handleMicClick} disabled={isProcessing || isStreaming}>
-                    {listening ? <MicOffIcon /> : <MicIcon />}
-                </Fab>
-                <Typography variant="caption" sx={{ mt: 1 }}>
-                    {isProcessing ? "Processing..." : listening ? "Listening... Click to stop." : "Click to speak."}
-                </Typography>
-            </Box>
-        </Stack>
+                {/* Input Area */}
+                <ChatInput onSendMessage={handleSendMessage} disabled={isProcessing} />
+            </Stack>
+        </DashboardLayout>
     );
 }

@@ -18,7 +18,8 @@ export default function ChatMessage({ message }) {
     };
 
     return (
-        <Box sx={{ display: 'flex', justifyContent: isAi ? 'flex-start' : 'flex-end', mb: 2 }}>
+        // ✅ Added key={message.id}
+        <Box key={message.id} sx={{ display: 'flex', justifyContent: isAi ? 'flex-start' : 'flex-end', mb: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: isAi ? 'row' : 'row-reverse', alignItems: 'flex-start', maxWidth: '80%' }}>
                 <Avatar sx={{ bgcolor: isAi ? 'primary.main' : 'secondary.main', mx: 1 }}>
                     {isAi ? <SmartToyIcon /> : <AccountCircleIcon />}
@@ -31,7 +32,6 @@ export default function ChatMessage({ message }) {
                         {message.content}
                     </Typography>
                 </Paper>
-                {/* Add metrics button for AI messages that have metrics */}
                 {isAi && message.response_time_seconds && (
                     <>
                         <IconButton size="small" onClick={handleMetricsClick} sx={{ ml: 0.5 }}>

@@ -28,7 +28,12 @@ async def auth_callback(request: Request, provider: str, db: Session = Depends(g
     This is the callback URL that Google redirects to.
     """
     try:
+        # --- THIS IS THE FIX ---
+        # By passing state=None, we are telling authlib "I know what I'm doing,
+        # please do not perform the CSRF state check for this callback."
+        # TO (CORRECT):
         token = await oauth.google.authorize_access_token(request)
+        # --- END OF FIX ---
     except Exception as e:
         print(f"!! OAUTH ERROR: {e}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Could not authorize with Google")
