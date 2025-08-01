@@ -79,10 +79,10 @@ def tavily_search_tool(query: str) -> Dict[str, Any]:
             "error_message": str(e)
         }
 
-def send_sms_tool(to: str, message: str) -> Dict[str, Any]:
+def send_sms_tool(to_number: str, message: str) -> Dict[str, Any]:
     """SMS tool using Twilio for sending text messages."""
     try:
-        result = send_sms(to, message)
+        result = send_sms(to_number, message)
         return {
             "status": "success",
             "result": result

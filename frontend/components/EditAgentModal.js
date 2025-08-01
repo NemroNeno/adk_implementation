@@ -7,8 +7,9 @@ export default function EditAgentModal({ open, handleClose, agent, onAgentUpdate
     const [name, setName] = useState('');
     const [systemPrompt, setSystemPrompt] = useState('');
     const [availableTools, setAvailableTools] = useState([]);
-    const [selectedTools, setSelectedTools] = useState(new Set());
+    const [selectedTools, setSelectedTools] = useState({});
     const [loading, setLoading] = useState(false);
+    const [loadingTools, setLoadingTools] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -17,20 +18,30 @@ export default function EditAgentModal({ open, handleClose, agent, onAgentUpdate
             // ...pre-fill the form with the agent's current data.
             setName(agent.name);
             setSystemPrompt(agent.system_prompt);
-            setSelectedTools(new Set(agent.tools || []));
+            setError('');
+            setLoadingTools(true);
             
             // Fetch the list of all available tools
             api.get('/api/v1/tools/')
-                .then(res => setAvailableTools(res.data))
-                .catch(err => setError("Could not load available tools."));
+                .then(res => {
+                    setAvailableTools(res.data);
+                    // Initialize selectedTools state as an object of booleans
+                    const initialSelection = {};
+                    res.data.forEach(tool => {
+                        initialSelection[tool.function_name] = (agent.tools || []).includes(tool.function_name);
+                    });
+                    setSelectedTools(initialSelection);
+                })
+                .catch(err => setError("Could not load available tools."))
+                .finally(() => setLoadingTools(false));
         }
     }, [open, agent]);
 
-    const handleToolToggle = (langchainKey) => {
-        const newSelection = new Set(selectedTools);
-        if (newSelection.has(langchainKey)) newSelection.delete(langchainKey);
-        else newSelection.add(langchainKey);
-        setSelectedTools(newSelection);
+    const handleToolToggle = (event) => {
+        setSelectedTools(prev => ({
+            ...prev,
+            [event.target.name]: event.target.checked,
+        }));
     };
 
     const handleSubmit = async () => {
@@ -39,10 +50,12 @@ export default function EditAgentModal({ open, handleClose, agent, onAgentUpdate
         setLoading(true);
         setError('');
         try {
+            // Filter for tools where the value is true
+            const enabledToolKeys = Object.keys(selectedTools).filter(key => selectedTools[key]);
             const payload = {
                 name,
                 system_prompt: systemPrompt,
-                tools: Array.from(selectedTools)
+                tools: enabledToolKeys
             };
             const response = await api.put(`/api/v1/agents/${agent.id}`, payload);
             onAgentUpdated(response.data); // Notify the parent page of the update
@@ -64,15 +77,24 @@ export default function EditAgentModal({ open, handleClose, agent, onAgentUpdate
                     
                     <Divider sx={{ my: 2 }} />
                     <Typography fontWeight="bold">Assign Tools</Typography>
-                    <FormGroup>
-                        {availableTools.map((tool) => (
-                            <FormControlLabel
-                                key={tool.id}
-                                control={<Checkbox checked={selectedTools.has(tool.langchain_key)} onChange={() => handleToolToggle(tool.langchain_key)} />}
-                                label={<Box><Typography>{tool.name}</Typography><Typography variant="caption">{tool.description}</Typography></Box>}
-                            />
-                        ))}
-                    </FormGroup>
+                    
+                    {loadingTools ? <CircularProgress sx={{ my: 1 }} /> : (
+                        <FormGroup>
+                            {availableTools.map((tool) => (
+                                <FormControlLabel
+                                    key={tool.id}
+                                    control={
+                                        <Checkbox 
+                                            checked={selectedTools[tool.function_name] || false}
+                                            onChange={handleToolToggle}
+                                            name={tool.function_name}
+                                        />
+                                    }
+                                    label={<Box><Typography>{tool.name}</Typography><Typography variant="caption" color="text.secondary">{tool.description}</Typography></Box>}
+                                />
+                            ))}
+                        </FormGroup>
+                    )}
                     {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
                 </Box>
             </DialogContent>
