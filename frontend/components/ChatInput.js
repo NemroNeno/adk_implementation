@@ -1,7 +1,7 @@
 "use client";
-import { useState } from 'react';
-import { useSpeechRecognition, SpeechRecognition } from 'react-speech-recognition';
-import { Box, TextField, IconButton, Tooltip } from '@mui/material';
+import { useState, useEffect } from 'react';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { Box, TextField, IconButton, Tooltip, Typography } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
@@ -10,7 +10,7 @@ export default function ChatInput({ onSendMessage, disabled }) {
   const [inputValue, setInputValue] = useState('');
   const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } = useSpeechRecognition();
 
-  useState(() => {
+  useEffect(() => {
     setInputValue(transcript);
   }, [transcript]);
 

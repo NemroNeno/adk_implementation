@@ -20,7 +20,7 @@ services:
   backend:
     build: ./backend
     container_name: adk_backend_api
-    command: uvicorn app.main:socket_app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/usr/src/app
     ports:

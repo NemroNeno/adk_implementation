@@ -7,6 +7,7 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install
+RUN npm install react-speech-recognition@4.0.1
 
 # Copy the rest of your application code
 COPY . .

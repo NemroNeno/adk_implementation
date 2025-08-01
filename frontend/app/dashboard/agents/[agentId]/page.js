@@ -48,12 +48,15 @@ export default function ChatPage() {
     // Setup WebSocket connection and listeners
     useEffect(() => {
         if (!isLoadingHistory && user && agent) {
-            // Connect to the correct namespace
-            const newSocket = io(process.env.NEXT_PUBLIC_API_URL, {
+            // Connect to the /text namespace - correct way to connect to namespace
+            const newSocket = io('http://localhost:8000/text', {
                 path: '/socket.io/',
                 transports: ['websocket'],
-                namespace: '/text'
+                forceNew: true,
+                autoConnect: true
             });
+            
+            console.log('Attempting to connect to /text namespace');
 
             setSocket(newSocket);
 
